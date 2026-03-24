@@ -79,7 +79,7 @@ data PauseLayer = PRoot | PStats | PInv | PInvDrop
 data AppState
   = Playing Game
   | Paused Game PauseLayer
-  | ConfirmExit Game
+  | ConfirmExit Game AppState
   | GameOver Game
   | Victory Game
   deriving (Eq, Show)

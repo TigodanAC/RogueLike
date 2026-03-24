@@ -199,7 +199,7 @@ applyPlayingKeyEvent ev g
     handleEvent (KArrow _) = Playing g
     move dx dy = resolveTurn (tryMovePlayer (dx, dy) g)
     moveMap =
-      [ ('q', ConfirmExit g), ('Q', ConfirmExit g)
+      [ ('q', ConfirmExit g (Playing g)), ('Q', ConfirmExit g (Playing g))
       , ('w', move 0 (-1)), ('W', move 0 (-1))
       , ('s', move 0 1),    ('S', move 0 1)
       , ('a', move (-1) 0), ('A', move (-1) 0)
@@ -216,14 +216,14 @@ handleStatsMenuKey ev g =
       let g' = processCheatInput ev g
        in if cheatStatsStayOpen g g' then Paused g' PStats else Paused g' PRoot
 
-handleConfirmExit :: KeyEvent -> Game -> AppState
-handleConfirmExit ev g =
+handleConfirmExit :: KeyEvent -> Game -> AppState -> AppState
+handleConfirmExit ev g returnState =
   case ev of
     KChar 'y' -> GameOver g
     KChar 'Y' -> GameOver g
-    KChar 'n' -> Playing g
-    KChar 'N' -> Playing g
-    _ -> ConfirmExit g
+    KChar 'n' -> returnState
+    KChar 'N' -> returnState
+    _ -> ConfirmExit g returnState
 
 applyPauseKeyEvent :: KeyEvent -> Game -> PauseLayer -> AppState
 applyPauseKeyEvent ev g layer = case layer of
@@ -240,7 +240,8 @@ applyPauseKeyEvent ev g layer = case layer of
           [ ('r', Playing g'), ('R', Playing g')
           , ('s', Paused g' PStats), ('S', Paused g' PStats)
           , ('i', Paused g' PInv),   ('I', Paused g' PInv)
-          , ('q', GameOver g'),      ('Q', GameOver g')
+          , ('q', ConfirmExit g' (Paused g' PRoot)),
+            ('Q', ConfirmExit g' (Paused g' PRoot))
           ]
 
     handlePInv (KChar ch)
@@ -263,7 +264,7 @@ stepApp kev st =
   case st of
     Playing g -> applyPlayingKeyEvent kev g
     Paused g layer -> applyPauseKeyEvent kev g layer
-    ConfirmExit g -> handleConfirmExit kev g
+    ConfirmExit g returnState -> handleConfirmExit kev g returnState
     GameOver g -> GameOver g
     Victory g -> Victory g
 
@@ -287,7 +288,7 @@ mainLoop st = do
   where
     drawState (Playing g) = drawPlayingUI g
     drawState (Paused g l) = drawPausedUI g l
-    drawState (ConfirmExit g) = drawConfirmExit g
+    drawState (ConfirmExit g _) = drawConfirmExit g
     drawState (GameOver g) = drawGameOver g
     drawState (Victory g) = drawVictory g
     
