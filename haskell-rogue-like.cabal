@@ -7,13 +7,36 @@ author:          tigodan
 build-type:      Simple
 extra-source-files: GameGuide.txt
 
+library
+  hs-source-dirs:      src
+  exposed-modules:     Game.Core, Game.Config, Game.Types, Game.Generation, Game.Logic
+  default-language:    Haskell2010
+  build-depends:
+    base          >= 4.13 && < 5,
+    containers    >= 0.6  && < 0.8,
+    random        >= 1.2  && < 1.4,
+    ansi-terminal >= 1.0 && < 1.2
+
 executable haskell-rogue-like
   main-is:             Main.hs
   hs-source-dirs:      app
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
   build-depends:
-    base          >= 4.16 && < 4.21,
-    containers    >= 0.6  && < 0.8,
-    random        >= 1.2  && < 1.4,
-    ansi-terminal >= 1.0 && < 1.2
+    base,
+    haskell-rogue-like,
+    containers,
+    random,
+    ansi-terminal
+
+test-suite haskell-rogue-like-tests
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Spec.hs
+  default-language: Haskell2010
+  build-depends:
+    base,
+    haskell-rogue-like,
+    containers,
+    random,
+    ansi-terminal
