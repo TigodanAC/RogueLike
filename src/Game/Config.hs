@@ -222,6 +222,9 @@ inventoryHeader = "=== Инвентарь ==="
 inventoryEmpty :: [String]
 inventoryEmpty = ["(пусто)"]
 
+inventoryDropHeader :: String
+inventoryDropHeader = "=== Выбросить предмет ==="
+
 inventoryMorePrefix :: String
 inventoryMorePrefix = "...ещё "
 
@@ -255,6 +258,9 @@ statsEnemiesHeader = "--- Враги ---"
 
 statsNoEnemies :: [String]
 statsNoEnemies = ["(нет)"]
+
+generationFailedMessage :: String
+generationFailedMessage = "Не удалось сгенерировать карту."
 
 -- Тексты подтверждения выхода
 confirmExitText :: String
@@ -314,6 +320,12 @@ enemyKillMessage = "Враг повержен."
 
 enemyHitMessage :: Int -> String
 enemyHitMessage dmg = "Вы бьёте на " ++ show dmg
+
+statsLocationSuffixStart :: String
+statsLocationSuffixStart = " (победа после "
+
+statsLocationSuffixEnd :: String
+statsLocationSuffixEnd = " зачисток)"
 
 konamiCheatMessage :: String
 konamiCheatMessage = "Чит: ↑↑↓↓←→←→BA"

@@ -319,13 +319,7 @@ tryBuildFloor floorNum player = go (0 :: Int)
                             gEnemies = em,
                             gChestLoot = cm,
                             gRng = gEnd,
-                            gLog =
-                              [ "Локация "
-                                  ++ show floorNum
-                                  ++ "/"
-                                  ++ show maxStoryFloors
-                                  ++ ". Убейте всех врагов."
-                              ],
+                            gLog = [levelStartMessage floorNum],
                             gFloor = floorNum,
                             gKonami = 0,
                             gIddqd = ""

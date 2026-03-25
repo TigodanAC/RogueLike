@@ -49,7 +49,7 @@ statsLines g =
         ++ ", урон " ++ show (eDmg e)
     locationLine =
       statsLocationPrefix ++ show (gFloor g) ++ "/" ++ show maxStoryFloors
-        ++ statsLocationSuffix ++ show maxStoryFloors ++ " зачисток)"
+        ++ statsLocationSuffixStart ++ show maxStoryFloors ++ statsLocationSuffixEnd
     hpLine =
       statsHpPrefix ++ show (psHp (gPlayer g))
         ++ statsHpSeparator ++ show (psMaxHp (gPlayer g))
@@ -100,7 +100,7 @@ drawPausedUI g layer = do
       mapM_ putStrLn (inventoryLines g)
       putStrLn pauseInventoryHint
     PInvDrop -> do
-      putStrLn "=== Выбросить предмет ==="
+      putStrLn inventoryDropHeader
       mapM_ putStrLn (inventoryLines g)
       putStrLn pauseDropHint
 
@@ -253,7 +253,7 @@ main :: IO ()
 main = do
   g <- newStdGen
   case tryBuildFloor 1 initialPlayer g of
-    Nothing -> putStrLn "Не удалось сгенерировать карту."
+    Nothing -> putStrLn generationFailedMessage
     Just (game0, _) -> do
       setupTerminal
       mainLoop (Playing game0) `finally` restoreTerminal
