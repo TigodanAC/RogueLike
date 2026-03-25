@@ -76,12 +76,12 @@ testSetAt =
 testLevelTables :: IO Bool
 testLevelTables =
   and <$> sequence
-    [ check "levelEnemyCount 1" (levelEnemyCount 1 == 3)
-    , check "levelEnemyCount 2" (levelEnemyCount 2 == 5)
-    , check "levelEnemyCount 5" (levelEnemyCount 5 == 11)
-    , check "levelChestCount 1" (levelChestCount 1 == 2)
-    , check "levelChestCount 3" (levelChestCount 3 == 3)
-    , check "levelChestCount 5" (levelChestCount 5 == 5)
+    [ check "enemyCountFormula 1" (enemyCountFormula 1 == 3)
+    , check "enemyCountFormula 2" (enemyCountFormula 2 == 5)
+    , check "enemyCountFormula 5" (enemyCountFormula 5 == 11)
+    , check "chestCountFormula 1" (chestCountFormula 1 == 2)
+    , check "chestCountFormula 3" (chestCountFormula 3 == 3)
+    , check "chestCountFormula 5" (chestCountFormula 5 == 5)
     ]
 
 testStatRanges :: IO Bool
@@ -399,8 +399,8 @@ testTryBuildFloor =
     Just g ->
       and <$> sequence
         [ check "floor number" (gFloor g == 1)
-        , check "enemy count" (M.size (gEnemies g) == levelEnemyCount 1)
-        , check "chest count" (M.size (gChestLoot g) == levelChestCount 1)
+        , check "enemy count" (M.size (gEnemies g) == enemyCountFormula 1)
+        , check "chest count" (M.size (gChestLoot g) == chestCountFormula 1)
         , check "player stands on floor" (walkableForPlayer (gWorld g) (gPlayerPos g))
         , check "all enemies on floor" (all (\p -> at (gWorld g) p == Just Floor) (M.keys (gEnemies g)))
         , check "all chests marked as chest" (all (\p -> at (gWorld g) p == Just Chest) (M.keys (gChestLoot g)))
@@ -526,3 +526,4 @@ main = do
     else putStrLn "Some tests failed."
 
   unless (and results) exitFailure
+  

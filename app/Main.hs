@@ -4,9 +4,6 @@ import Game.Core
 import qualified Data.Map.Strict as M
 import Control.Exception (finally)
 import System.Console.ANSI (
-    Color(..),
-    ColorIntensity(..),
-    ConsoleLayer(..),
     SGR(..),
     clearScreen,
     hideCursor,
@@ -19,28 +16,10 @@ import Control.Monad (unless)
 import Data.Maybe (fromMaybe)
 import Data.Char (digitToInt)
 
-tileChar :: Tile -> Char
-tileChar Wall = '#'
-tileChar Floor = '.'
-tileChar Lake = '~'
-tileChar Chest = '$'
-
-tileSGR :: Tile -> [SGR]
-tileSGR Wall = [SetColor Foreground Dull Blue]
-tileSGR Floor = [SetColor Foreground Dull White]
-tileSGR Lake = [SetColor Foreground Vivid Blue]
-tileSGR Chest = [SetColor Foreground Vivid Yellow]
-
-playerSGR :: [SGR]
-playerSGR = [SetColor Foreground Vivid Green]
-
-enemySGR :: [SGR]
-enemySGR = [SetColor Foreground Vivid Red]
-
 drawCell :: Game -> Int -> Int -> IO ()
 drawCell game x y
-  | (x, y) == gPlayerPos game = drawWithSGR playerSGR '@'
-  | M.member (x, y) (gEnemies game) = drawWithSGR enemySGR 'e'
+  | (x, y) == gPlayerPos game = drawWithSGR playerSGR playerChar
+  | M.member (x, y) (gEnemies game) = drawWithSGR enemySGR enemyChar
   | otherwise = maybe (putChar '?') drawTile $ at (gWorld game) (x, y)
   where
     drawWithSGR sgr ch = setSGR sgr >> putChar ch >> setSGR [Reset]
@@ -60,7 +39,7 @@ statsLines g =
   , combatLine
   , weaponLine
   , armorLine
-  , enemiesHeader
+  , statsEnemiesHeader
   ]
   ++ maybeEnemies (map mkEnemyLine (M.toList (gEnemies g)))
   where
@@ -69,35 +48,24 @@ statsLines g =
         ++ ": HP " ++ show (eHp e) ++ "/" ++ show (eMaxHp e)
         ++ ", урон " ++ show (eDmg e)
     locationLine =
-      "Локация: " ++ show (gFloor g) ++ "/" ++ show maxStoryFloors
-        ++ " (победа после " ++ show maxStoryFloors ++ " зачисток)"
+      statsLocationPrefix ++ show (gFloor g) ++ "/" ++ show maxStoryFloors
+        ++ statsLocationSuffix ++ show maxStoryFloors ++ " зачисток)"
     hpLine =
-      "HP: " ++ show (psHp (gPlayer g))
-        ++ "/" ++ show (psMaxHp (gPlayer g))
+      statsHpPrefix ++ show (psHp (gPlayer g))
+        ++ statsHpSeparator ++ show (psMaxHp (gPlayer g))
     combatLine =
-      "Ваш удар: " ++ show (playerAttackBonus (gPlayer g))
-        ++ " | снижение урона бронёй: " ++ show (armorReduction (gPlayer g))
+      statsCombatPrefix ++ show (playerAttackBonus (gPlayer g))
+        ++ statsCombatSeparator ++ show (armorReduction (gPlayer g))
     weaponLine =
-      maybe "Оружие: нет" itemLine (psWeapon (gPlayer g))
+      maybe statsWeaponNone itemLine (psWeapon (gPlayer g))
     armorLine =
-      maybe "Броня: нет" itemLine (psArmor (gPlayer g))
+      maybe statsArmorNone itemLine (psArmor (gPlayer g))
 
-    enemiesHeader = "--- Враги ---"
-    maybeEnemies [] = ["(нет)"]
+    maybeEnemies [] = statsNoEnemies
     maybeEnemies xs = xs
 
-pauseRootText :: String
-pauseRootText =
-  unlines
-    [ "=== ПАУЗА (P) ===",
-      "R — продолжить",
-      "S — статы (вы и враги)",
-      "I — инвентарь (1..9 — использовать/экипировать, D — выбросить)",
-      "Q — выход из игры"
-    ]
-
 inventoryLines :: Game -> [String]
-inventoryLines = maybe ["(пусто)"] formatInventory . nonEmpty . psInv . gPlayer
+inventoryLines = maybe inventoryEmpty formatInventory . nonEmpty . psInv . gPlayer
   where
     nonEmpty [] = Nothing
     nonEmpty xs = Just xs
@@ -108,16 +76,7 @@ inventoryLines = maybe ["(пусто)"] formatInventory . nonEmpty . psInv . gPl
        in zipWith mkLine indices shown ++ extraLine (length xs)
       where
         mkLine i it = show i ++ ". " ++ itemLine it
-        extraLine n = ["...ещё " ++ show (n - 9) | n > 9]
-
-instructions :: String
-instructions =
-  unlines
-    [ "WASD — ходить (во врага — удар), P — пауза, Q — выход",
-      "Цель: зачистить " ++ show maxStoryFloors ++ " локаций (все враги на каждой). Лут и экипировка сохраняются.",
-      "@ игрок  . пол  # стена  ~ вода  e враг  $ сундук",
-      ""
-    ]
+        extraLine n = [inventoryMorePrefix ++ show (n - 9) | n > 9]
 
 drawPlayingUI :: Game -> IO ()
 drawPlayingUI g = do
@@ -135,39 +94,39 @@ drawPausedUI g layer = do
     PStats -> do
       mapM_ putStrLn (statsLines g)
       putStrLn ""
-      putStrLn "Enter — назад в меню паузы."
+      putStrLn pauseEnterHint
     PInv -> do
-      putStrLn "=== Инвентарь ==="
+      putStrLn inventoryHeader
       mapM_ putStrLn (inventoryLines g)
-      putStrLn "1..9 — использовать/экипировать  |  D — режим выброса  |  B — назад"
+      putStrLn pauseInventoryHint
     PInvDrop -> do
       putStrLn "=== Выбросить предмет ==="
       mapM_ putStrLn (inventoryLines g)
-      putStrLn "1..9 — выбросить слот  |  B — отмена"
+      putStrLn pauseDropHint
 
 drawGameOver :: Game -> IO ()
 drawGameOver g = do
   putStrLn ""
   if psHp (gPlayer g) <= 0
-    then putStrLn "Вы погибли."
-    else putStrLn "Выход из игры."
+    then putStrLn gameOverDead
+    else putStrLn gameOverExit
   putStrLn ""
-  putStrLn "Любая клавиша — закрыть."
+  putStrLn gameOverAnyKey
 
 drawVictory :: Game -> IO ()
 drawVictory _ = do
   putStrLn ""
-  putStrLn "Победа! Все пять локаций зачищены."
+  putStrLn victoryText
   putStrLn ""
-  putStrLn "Любая клавиша — закрыть."
+  putStrLn victoryAnyKey
 
 drawConfirmExit :: Game -> IO ()
 drawConfirmExit g = do
   drawGame g
   putStrLn ""
-  putStrLn "Вы точно хотите выйти?"
-  putStrLn "Y — да, выйти"
-  putStrLn "N — нет, продолжить"
+  putStrLn confirmExitText
+  putStrLn confirmExitYes
+  putStrLn confirmExitNo
 
 readKeyEvent :: IO KeyEvent
 readKeyEvent = do
@@ -199,19 +158,17 @@ applyPlayingKeyEvent ev g
     handleEvent (KArrow _) = Playing g
     move dx dy = resolveTurn (tryMovePlayer (dx, dy) g)
     moveMap =
-      [ ('q', ConfirmExit g (Playing g)), ('Q', ConfirmExit g (Playing g))
-      , ('w', move 0 (-1)), ('W', move 0 (-1))
-      , ('s', move 0 1),    ('S', move 0 1)
-      , ('a', move (-1) 0), ('A', move (-1) 0)
-      , ('d', move 1 0),    ('D', move 1 0)
-      , ('p', Paused g PRoot), ('P', Paused g PRoot)
-      ]
+      [ (c, ConfirmExit g (Playing g)) | c <- quitKeys ]
+      ++ [ (c, move 0 (-1)) | c <- moveUpKeys ]
+      ++ [ (c, move 0 1) | c <- moveDownKeys ]
+      ++ [ (c, move (-1) 0) | c <- moveLeftKeys ]
+      ++ [ (c, move 1 0) | c <- moveRightKeys ]
+      ++ [ (c, Paused g PRoot) | c <- pauseKeys ]
 
 handleStatsMenuKey :: KeyEvent -> Game -> AppState
 handleStatsMenuKey ev g =
   case ev of
-    KChar '\n' -> Paused g PRoot
-    KChar '\r' -> Paused g PRoot
+    KChar c | c `elem` returnKeys -> Paused g PRoot
     _ ->
       let g' = processCheatInput ev g
        in if cheatStatsStayOpen g g' then Paused g' PStats else Paused g' PRoot
@@ -219,10 +176,8 @@ handleStatsMenuKey ev g =
 handleConfirmExit :: KeyEvent -> Game -> AppState -> AppState
 handleConfirmExit ev g returnState =
   case ev of
-    KChar 'y' -> GameOver g
-    KChar 'Y' -> GameOver g
-    KChar 'n' -> returnState
-    KChar 'N' -> returnState
+    KChar c | c `elem` yesKeys -> GameOver g
+    KChar c | c `elem` noKeys  -> returnState
     _ -> ConfirmExit g returnState
 
 applyPauseKeyEvent :: KeyEvent -> Game -> PauseLayer -> AppState
@@ -237,24 +192,22 @@ applyPauseKeyEvent ev g layer = case layer of
       KChar ch -> fromMaybe (Paused g' PRoot) (lookup ch prMap)
       where
         prMap =
-          [ ('r', Playing g'), ('R', Playing g')
-          , ('s', Paused g' PStats), ('S', Paused g' PStats)
-          , ('i', Paused g' PInv),   ('I', Paused g' PInv)
-          , ('q', ConfirmExit g' (Paused g' PRoot)),
-            ('Q', ConfirmExit g' (Paused g' PRoot))
-          ]
+          [ (c, Playing g') | c <- "rR" ]
+          ++ [ (c, Paused g' PStats) | c <- statsMenuKeys ]
+          ++ [ (c, Paused g' PInv) | c <- inventoryMenuKeys ]
+          ++ [ (c, ConfirmExit g' (Paused g' PRoot)) | c <- quitKeys ]
 
     handlePInv (KChar ch)
-      | ch `elem` "bB"      = Paused g PRoot
-      | ch `elem` "dD"      = Paused g PInvDrop
-      | ch `elem` ['1'..'9'] =
+      | ch `elem` backKeys   = Paused g PRoot
+      | ch `elem` dropKeys   = Paused g PInvDrop
+      | ch >= '1' && ch <= '9' =
           let idx = digitToInt ch - 1
           in Paused (useOrEquip idx g) PInv
     handlePInv _ = Paused g PInv
 
     handlePInvDrop (KChar ch)
-      | ch `elem` "bB"      = Paused g PInv
-      | ch `elem` ['1'..'9'] =
+      | ch `elem` backKeys   = Paused g PInv
+      | ch >= '1' && ch <= '9' =
           let idx = digitToInt ch - 1
           in Paused (dropInvSlot idx g) PInv
     handlePInvDrop _ = Paused g PInvDrop
@@ -304,3 +257,4 @@ main = do
     Just (game0, _) -> do
       setupTerminal
       mainLoop (Playing game0) `finally` restoreTerminal
+      

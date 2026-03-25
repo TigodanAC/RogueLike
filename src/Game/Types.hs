@@ -83,3 +83,4 @@ data AppState
   | GameOver Game
   | Victory Game
   deriving (Eq, Show)
+  

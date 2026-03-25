@@ -1,9 +1,5 @@
 module Game.Generation (
-  width,
-  height,
-  maxStoryFloors,
   baseGrid,
-  initialPlayer, 
   inBounds,
   onOuterWall,
   at,
@@ -14,8 +10,8 @@ module Game.Generation (
   floorCells,
   components,
   buildTerrain,
-  levelEnemyCount,
-  levelChestCount,
+  enemyCountFormula,
+  chestCountFormula,
   enemyHpDmg,
   mkEnemy,
   weaponStatRange,
@@ -36,9 +32,6 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
 import Data.List (foldl')
 import System.Random (RandomGen, StdGen, randomR, splitGen)
-
-maxStoryFloors :: Int
-maxStoryFloors = 5
 
 inBounds :: (Int, Int) -> Bool
 inBounds (x, y) = x >= 0 && x < width && y >= 0 && y < height
@@ -167,7 +160,7 @@ addLakes n g gen
   | n <= 0 = (g, gen)
   | otherwise =
       let (center, g1) = randomInterior gen
-          (rad, g2) = randomR (3, 8) g1
+          (rad, g2) = randomR lakeRadiusRange g1
           g' = paintDisk Lake center rad g
        in addLakes (n - 1) g' g2
   where
@@ -180,8 +173,8 @@ addWallRuins :: Int -> [[Tile]] -> StdGen -> ([[Tile]], StdGen)
 addWallRuins n g gen
   | n <= 0 = (g, gen)
   | otherwise =
-      let (rw, g1) = randomR (3, 9) gen
-          (rh, g2) = randomR (2, 5) g1
+      let (rw, g1) = randomR ruinsWidthRange gen
+          (rh, g2) = randomR ruinsHeightRange g1
           maxX = width - 2 - rw
           maxY = height - 2 - rh
           (g', gOut)
@@ -194,25 +187,11 @@ addWallRuins n g gen
 
 buildTerrain :: StdGen -> [[Tile]]
 buildTerrain gen =
-  let (nLakes, g1) = randomR (2, 4) gen
-      (nRuins, g2) = randomR (4, 9) g1
+  let (nLakes, g1) = randomR lakeCountRange gen
+      (nRuins, g2) = randomR ruinsCountRange g1  
       (gL, g3) = addLakes nLakes baseGrid g2
       (gR, _) = addWallRuins nRuins gL g3
    in ensureConnected gR
-
-levelEnemyCount :: Int -> Int
-levelEnemyCount lvl = 3 + (lvl - 1) * 2
-
-levelChestCount :: Int -> Int
-levelChestCount lvl = 2 + (lvl - 1) `div` 2 + if lvl >= 4 then 1 else 0
-
-enemyHpDmg :: Int -> ((Int, Int), (Int, Int))
-enemyHpDmg lvl = case lvl of
-  1 -> ((7, 9), (1, 2))
-  2 -> ((8, 11), (2, 4))
-  3 -> ((9, 13), (2, 5))
-  4 -> ((10, 15), (3, 6))
-  _ -> ((11, 17), (4, 7))
 
 mkEnemy :: Int -> StdGen -> (Enemy, StdGen)
 mkEnemy lvl g =
@@ -220,38 +199,6 @@ mkEnemy lvl g =
       (hp, g1) = randomR (hLo, hHi) g
       (dmg, g2) = randomR (dLo, dHi) g1
    in (Enemy hp hp dmg, g2)
-
-weaponStatRange :: Int -> (Int, Int)
-weaponStatRange skew = case skew of
-  0 -> (2, 3)
-  1 -> (2, 4)
-  2 -> (3, 5)
-  3 -> (4, 6)
-  _ -> (5, 10)
-
-armorStatRange :: Int -> (Int, Int)
-armorStatRange skew = case skew of
-  0 -> (1, 2)
-  1 -> (2, 3)
-  2 -> (2, 5)
-  3 -> (3, 5)
-  _ -> (5, 7)
-
-potionStatRange :: Int -> (Int, Int)
-potionStatRange skew = case skew of
-  0 -> (5, 10)
-  1 -> (5, 15)
-  2 -> (10, 17)
-  3 -> (13, 20)
-  _ -> (15, 30)
-
-chestItemCountRange :: Int -> (Int, Int)
-chestItemCountRange lvl = case lvl of
-  1 -> (1, 3)
-  2 -> (1, 4)
-  3 -> (2, 4)
-  4 -> (2, 5)
-  _ -> (3, 5)
 
 rollItem :: Int -> StdGen -> (Item, StdGen)
 rollItem lvl g =
@@ -262,12 +209,12 @@ rollItem lvl g =
       (r, g1) = randomR (1 :: Int, 100) g
   in case () of
        _
-         | r <= 35 ->
+         | r <= weaponChance ->                             
              let (names, g2) = pickWeaponNames skew g1
                  (d, g3) = randomR (wLo, wHi) g2
              in (Weapon names d, g3)
 
-         | r <= 70 ->
+         | r <= weaponChance + armorChance ->              
              let (names, g2) = pickArmorNames skew g1
                  (a, g3) = randomR (aLo, aHi) g2
              in (Armor names a, g3)
@@ -282,19 +229,19 @@ rollItem lvl g =
       in (xs !! i, g')
 
     pickWeaponNames s g0
-      | s <= 0 = pick ["Ржавый клинок", "Кинжал", "Топорик"] g0
-      | s <= 2 = pick ["Короткий меч", "Секира", "Копьё"] g0
-      | otherwise = pick ["Меч закалённый", "Боевой топор", "Клинок тени"] g0
+      | s <= 0 = pick (head weaponNames) g0  
+      | s <= 2 = pick (weaponNames !! 1) g0  
+      | otherwise = pick (weaponNames !! 2) g0 
 
     pickArmorNames s g0
-      | s <= 0 = pick ["Кожанка", "Кольчуга", "Латы"] g0
-      | s <= 2 = pick ["Крепкая кожа", "Стальной нагрудник", "Латы рыцаря"] g0
-      | otherwise = pick ["Доспех стража", "Пластины", "Латы закалённые"] g0
+      | s <= 0 = pick (head armorNames) g0  
+      | s <= 2 = pick (armorNames !! 1) g0   
+      | otherwise = pick (armorNames !! 2) g0 
 
     pickPotionNames s g0
-      | s <= 0 = pick ["Флакон", "Настойка", "Бинты"] g0
-      | s <= 2 = pick ["Эликсир", "Сильное зелье", "Целебный отвар"] g0
-      | otherwise = pick ["Большой флакон", "Нектар", "Философский эликсир"] g0
+      | s <= 0 = pick (head potionNames) g0  
+      | s <= 2 = pick (potionNames !! 1) g0  
+      | otherwise = pick (potionNames !! 2) g0 
 
 rollChestLoot :: Int -> StdGen -> ([Item], StdGen)
 rollChestLoot lvl g =
@@ -349,9 +296,9 @@ placeWorld nEnemies nChests lvl floors grid gen =
 tryBuildFloor :: Int -> PlayerStats -> StdGen -> Maybe (Game, StdGen)
 tryBuildFloor floorNum player = go (0 :: Int)
   where
-    maxAttempts = 400 :: Int
-    nE = levelEnemyCount floorNum
-    nC = levelChestCount floorNum
+    maxAttempts = maxBuildAttempts  
+    nE = enemyCountFormula floorNum  
+    nC = chestCountFormula floorNum  
     needed = 1 + nE + nC
     go n g
       | n >= maxAttempts = Nothing
@@ -389,18 +336,9 @@ buildFloorOrDie :: Int -> PlayerStats -> StdGen -> (Game, StdGen)
 buildFloorOrDie lvl p = go (0 :: Int)
   where
     go n gen
-      | n > (600 :: Int) = error "buildFloorOrDie: не удалось сгенерировать уровень"
+      | n > maxFloorBuildAttempts = error "buildFloorOrDie: не удалось сгенерировать уровень"
       | otherwise =
           case tryBuildFloor lvl p gen of
             Nothing -> go (n + 1) (snd (splitGen gen))
             Just x -> x
-
-initialPlayer :: PlayerStats
-initialPlayer =
-  PlayerStats
-    { psHp = 30,
-      psMaxHp = 30,
-      psInv = [],
-      psWeapon = Nothing,
-      psArmor = Nothing
-    }
+            

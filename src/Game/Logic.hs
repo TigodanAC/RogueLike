@@ -30,6 +30,7 @@ module Game.Logic (
   addPos
 ) where
 
+import Game.Config
 import Game.Types
 import Game.Generation
 import qualified Data.Map.Strict as M
@@ -43,7 +44,7 @@ itemLine (Potion n h) = n ++ " (+" ++ show h ++ " HP)"
 
 playerAttackBonus :: PlayerStats -> Int
 playerAttackBonus ps =
-  3 + case psWeapon ps of
+  basePlayerDamage + case psWeapon ps of
     Just (Weapon _ d) -> d
     _ -> 0
 
@@ -57,16 +58,15 @@ playerAlive :: Game -> Bool
 playerAlive = (> 0) . psHp . gPlayer
 
 logMsg :: String -> Game -> Game
-logMsg m g = g {gLog = take 5 (m : gLog g)}
+logMsg m g = g {gLog = take maxLogMessages (m : gLog g)}
 
-damagePlayer :: Int -> Game -> Game
 damagePlayer rawDmg g =
   let p = gPlayer g
       mit = armorReduction p
       dmg = max 1 (rawDmg - mit)
       h' = max 0 (psHp p - dmg)
       p' = p {psHp = h'}
-   in logMsg ("Вам нанесли " ++ show dmg ++ " урона") g {gPlayer = p'}
+   in logMsg (damageLogMessage dmg) $ g {gPlayer = p'}
 
 healPlayer :: Int -> Game -> Game
 healPlayer amt g =
@@ -85,20 +85,20 @@ useOrEquip idx g = maybe g handleItem $ takeNth idx (psInv (gPlayer g))
   where
     handleItem (it, inv') = case it of
       Potion _ h ->
-        logMsg ("Выпито: +" ++ show h ++ " HP") $
+        logMsg (healLogMessage h) $
           healPlayer h $
             g {gPlayer = (gPlayer g) {psInv = inv'}}
       
       w@(Weapon _ _) ->
         let p = gPlayer g
             newInv = maybe inv' (: inv') (psWeapon p)
-         in logMsg "Оружие экипировано." $
+         in logMsg weaponEquipMessage $
               g {gPlayer = p {psWeapon = Just w, psInv = newInv}}
       
       a@(Armor _ _) ->
         let p = gPlayer g
             newInv = maybe inv' (: inv') (psArmor p)
-         in logMsg "Броня надета." $
+         in logMsg armorEquipMessage $
               g {gPlayer = p {psArmor = Just a, psInv = newInv}}
 
 dropInvSlot :: Int -> Game -> Game
@@ -107,29 +107,29 @@ dropInvSlot idx g =
    in case takeNth idx (psInv p) of
         Nothing -> g
         Just (_, inv') ->
-          logMsg "Предмет выброшен." $
+          logMsg itemDropMessage $
             g {gPlayer = p {psInv = inv'}}
 
 playerAttackEnemy :: (Int, Int) -> Game -> TurnOutcome
 playerAttackEnemy pos g = maybe (Outcome g) attackEnemy $ M.lookup pos (gEnemies g)
   where
-    attackEnemy e = 
+    attackEnemy e =
       let atk = playerAttackBonus (gPlayer g)
           e' = e {eHp = eHp e - atk}
-          gHit = logMsg ("Вы бьёте на " ++ show atk) g
+          gHit = logMsg (enemyHitMessage atk) g
        in if eHp e' <= 0
-            then handleKill pos e' gHit
+            then handleKill pos gHit
             else Outcome $ afterPlayerAction True $ updateEnemy pos e' gHit
-    
-    handleKill pos e' gHit = 
-      let gKill = logMsg "Враг повержен." 
+
+    handleKill pos gHit =
+      let gKill = logMsg enemyKillMessage
                 $ gHit { gEnemies = M.delete pos (gEnemies gHit)
                        , gWorld = setAt pos Floor (gWorld gHit)
                        , gPlayerPos = pos }
        in if M.null (gEnemies gKill)
             then OutcomeAdvance gKill
             else Outcome (afterPlayerAction True gKill)
-    
+
     updateEnemy pos e' = overEnemies (M.insert pos e')
     overEnemies f g' = g' {gEnemies = f (gEnemies g')}
 
@@ -152,7 +152,7 @@ enemyTurn :: Game -> Game
 enemyTurn g
   | not (playerAlive g) = g
   | otherwise =
-      foldl (flip processOneEnemy) g (sort (M.keys (gEnemies g)))
+      foldl (flip processOneEnemy) g (M.keys (gEnemies g))
   where
     processOneEnemy pos g0 =
       case M.lookup pos (gEnemies g0) of
@@ -195,7 +195,7 @@ openChest pos g =
           p' = p {psInv = psInv p ++ loot}
           w' = setAt pos Floor (gWorld g)
        in afterPlayerAction True $
-            logMsg ("Сундук: +" ++ show (length loot) ++ " предм.") $
+            logMsg (chestLogMessage (length loot)) $
               g
                 { gWorld = w',
                   gPlayer = p',
@@ -220,7 +220,7 @@ advanceFromCleared g
                 gLog =
                   take
                     5
-                    ( ("Локация зачищена! Переход на " ++ show next ++ ".")
+                    ( levelClearedMessage next
                         : gLog gNew
                     )
               }
@@ -277,18 +277,18 @@ stepIddqd (KChar c) buf
 cheatKonamiApply :: Game -> Game
 cheatKonamiApply g =
   let p = gPlayer g
-      w = Weapon "↑↑↓↓←→←→BA" 100
-      ar = Armor "↑↑↓↓←→←→BA" 100
+      w = Weapon cheatWeaponName cheatWeaponBonus
+      ar = Armor cheatArmorName cheatArmorBonus
       inv1 = maybe id (:) (psWeapon p) (psInv p)
       inv2 = maybe id (:) (psArmor p) inv1
       p' = p {psWeapon = Just w, psArmor = Just ar, psInv = inv2}
-   in logMsg "Чит: ↑↑↓↓←→←→BA" $ g {gPlayer = p', gIddqd = ""}
+   in logMsg konamiCheatMessage $ g {gPlayer = p', gIddqd = ""}
 
 cheatIddqdApply :: Game -> Game
 cheatIddqdApply g =
   let p = gPlayer g
       p' = p {psHp = 999999, psMaxHp = 999999}
-   in logMsg "Чит: IDDQD" $ g {gPlayer = p', gKonami = 0}
+   in logMsg iddqdCheatMessage $ g {gPlayer = p', gKonami = 0}
 
 processCheatInput ev g
   | buf' == iddqdTarget = cheatIddqdApply $ g1 {gIddqd = ""}
@@ -305,3 +305,4 @@ cheatStatsStayOpen g g' =
   gKonami g /= gKonami g'
     || gIddqd g /= gIddqd g'
     || gPlayer g /= gPlayer g'
+    
