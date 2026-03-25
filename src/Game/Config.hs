@@ -232,8 +232,11 @@ inventoryMorePrefix = "...ещё "
 statsLocationPrefix :: String
 statsLocationPrefix = "Локация: "
 
-statsLocationSuffix :: String
-statsLocationSuffix = " (победа после "
+statsLocationSuffixStart :: String
+statsLocationSuffixStart = " (победа после "
+
+statsLocationSuffixEnd :: String
+statsLocationSuffixEnd = " зачисток)"
 
 statsHpPrefix :: String
 statsHpPrefix = "HP: "
@@ -320,12 +323,6 @@ enemyKillMessage = "Враг повержен."
 
 enemyHitMessage :: Int -> String
 enemyHitMessage dmg = "Вы бьёте на " ++ show dmg
-
-statsLocationSuffixStart :: String
-statsLocationSuffixStart = " (победа после "
-
-statsLocationSuffixEnd :: String
-statsLocationSuffixEnd = " зачисток)"
 
 konamiCheatMessage :: String
 konamiCheatMessage = "Чит: ↑↑↓↓←→←→BA"
