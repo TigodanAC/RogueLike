@@ -135,8 +135,8 @@ potionNames =
 
 -- Имена для читерских предметов
 cheatWeaponName, cheatArmorName :: String
-cheatWeaponName = "↑↑↓↓←→←→BA"
-cheatArmorName = "↑↑↓↓←→←→BA"
+cheatWeaponName = "Меч Читера"
+cheatArmorName = "Броня Читера"
 
 cheatWeaponBonus, cheatArmorBonus :: Int
 cheatWeaponBonus = 100
@@ -287,6 +287,9 @@ gameOverAnyKey = "Любая клавиша — закрыть."
 
 victoryText :: String
 victoryText = "Победа! Все пять локаций зачищены."
+
+victoryCheatText :: String
+victoryCheatText = "Ну ладно, ты победил, доволен? Интересно ли играть с читами?"
 
 victoryAnyKey :: String
 victoryAnyKey = "Любая клавиша — закрыть."

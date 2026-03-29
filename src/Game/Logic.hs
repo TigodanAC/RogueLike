@@ -217,6 +217,7 @@ advanceFromCleared g
               { gRng = r,
                 gKonami = gKonami g,
                 gIddqd = gIddqd g,
+                gUsedCheats = gUsedCheats g,
                 gLog =
                   take
                     5
@@ -282,13 +283,13 @@ cheatKonamiApply g =
       inv1 = maybe id (:) (psWeapon p) (psInv p)
       inv2 = maybe id (:) (psArmor p) inv1
       p' = p {psWeapon = Just w, psArmor = Just ar, psInv = inv2}
-   in logMsg konamiCheatMessage $ g {gPlayer = p', gIddqd = ""}
+   in logMsg konamiCheatMessage $ g {gPlayer = p', gIddqd = "", gUsedCheats = True}
 
 cheatIddqdApply :: Game -> Game
 cheatIddqdApply g =
   let p = gPlayer g
       p' = p {psHp = 999999, psMaxHp = 999999}
-   in logMsg iddqdCheatMessage $ g {gPlayer = p', gKonami = 0}
+   in logMsg iddqdCheatMessage $ g {gPlayer = p', gKonami = 0, gUsedCheats = True}
 
 processCheatInput ev g
   | buf' == iddqdTarget = cheatIddqdApply $ g1 {gIddqd = ""}

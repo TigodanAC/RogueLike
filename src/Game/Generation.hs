@@ -322,7 +322,8 @@ tryBuildFloor floorNum player = go (0 :: Int)
                             gLog = [levelStartMessage floorNum],
                             gFloor = floorNum,
                             gKonami = 0,
-                            gIddqd = ""
+                            gIddqd = "",
+                            gUsedCheats = False
                           }
                    in Just (game, gEnd)
 

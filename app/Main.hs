@@ -114,9 +114,11 @@ drawGameOver g = do
   putStrLn gameOverAnyKey
 
 drawVictory :: Game -> IO ()
-drawVictory _ = do
+drawVictory g = do
   putStrLn ""
-  putStrLn victoryText
+  if gUsedCheats g
+    then putStrLn victoryCheatText
+    else putStrLn victoryText
   putStrLn ""
   putStrLn victoryAnyKey
 

@@ -58,7 +58,8 @@ data Game = Game
     gLog :: [String],
     gFloor :: !Int,
     gKonami :: !Int,
-    gIddqd :: String
+    gIddqd :: String,
+    gUsedCheats :: !Bool
   }
   deriving (Eq, Show)
 

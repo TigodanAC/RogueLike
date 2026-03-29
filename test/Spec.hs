@@ -34,6 +34,7 @@ makeGame player world pos enemies chests floorN =
     , gFloor = floorN
     , gKonami = 0
     , gIddqd = ""
+    , gUsedCheats = False
     }
 
 outerPositions :: [Pos]
@@ -429,6 +430,8 @@ testCheats =
         , check "Konami gives armor" (case psArmor (gPlayer afterKonami) of Just _ -> True; _ -> False)
         , check "IDDQD sets huge HP" (psHp (gPlayer afterIddqd) == 999999)
         , check "IDDQD sets huge max HP" (psMaxHp (gPlayer afterIddqd) == 999999)
+        , check "Konami sets gUsedCheats" (gUsedCheats afterKonami)
+        , check "IDDQD sets gUsedCheats" (gUsedCheats afterIddqd)
         ]
 
 testLogMsg :: IO Bool
